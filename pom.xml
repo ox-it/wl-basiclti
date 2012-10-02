@@ -95,18 +95,20 @@
         </developer>
     </developers>
 
-    <scm>
-        <connection>scm:svn:https://source.sakaiproject.org/svn/basiclti/branches/basiclti-1.3.x</connection>
-        <developerConnection>scm:svn:https://source.sakaiproject.org/svn/basiclti/branches/basiclti-1.3.x</developerConnection>
-        <url>https://source.sakaiproject.org/svn/basiclti/branches/basiclti-1.3.x</url>
-    </scm>
 
+    <scm>
+        <connection>scm:git:git://git-repo.oucs.ox.ac.uk/git/repos/local-version/sakai/basiclti.git</connection>
+        <developerConnection>scm:git:ssh://git-repo.oucs.ox.ac.uk/~git/repos/local-version/sakai/basiclti.git</developerConnection>
+        </scm>
     <distributionManagement>
-        <site>
-            <id>sakai-site</id>
-            <name>Sakai release Site</name>
-            <url>scpexe://source.sakaiproject.org/var/www/html/release/basiclti/${project.version}</url>
-        </site>
+        <repository>
+            <id>maven-repo.oucs</id>
+            <url>https://maven-repo.oucs.ox.ac.uk/content/repositories/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>maven-repo.oucs</id>
+            <url>https://maven-repo.oucs.ox.ac.uk/content/repositories/snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
     
     <pluginRepositories>
