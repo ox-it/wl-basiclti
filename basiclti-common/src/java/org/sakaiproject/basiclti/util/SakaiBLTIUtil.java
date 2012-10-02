@@ -197,6 +197,10 @@ public class SakaiBLTIUtil {
 		if ( "on".equals(releaseemail) ) {
 			setProperty(props,BasicLTIConstants.LIS_PERSON_CONTACT_EMAIL_PRIMARY,user.getEmail());
 			setProperty(props,BasicLTIConstants.LIS_PERSON_SOURCEDID,user.getEid());
+			// Only send the display ID if it's different to the EID.
+			if (!user.getEid().equals(user.getDisplayId())) {
+				setProperty(props,BasicLTIConstants.EXT_SAKAI_PROVIDER_DISPLAYID,user.getDisplayId());
+			}
 		}
  
 	        String assignment = toNull(getCorrectProperty(config,"assignment", placement));
