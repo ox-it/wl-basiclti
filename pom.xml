@@ -11,7 +11,7 @@
     <name>BasicLTI base pom (basiclti)</name>
     <groupId>org.sakaiproject.basiclti</groupId>
     <artifactId>basiclti</artifactId>
-    <version>1.3.6ox1-SNAPSHOT</version>
+    <version>1.3.6ox1</version>
     <organization>
         <name>Sakai Project</name>
         <url>http://sakaiproject.org/</url>
