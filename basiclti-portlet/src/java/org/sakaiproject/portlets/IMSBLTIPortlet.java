@@ -616,7 +616,7 @@ public class IMSBLTIPortlet extends GenericPortlet {
                 if ( "secret".equals(element) ) {
                     if ( LEAVE_SECRET_ALONE.equals(formParm) ) continue;
                     // If the user has specified a key.
-                    String key = ServerConfigurationService.getString("basiclti.encryption.key", null);
+                    String key = ServerConfigurationService.getString(SakaiBLTIUtil.BASICLTI_ENCRYPTION_KEY, null);
                     if (key != null) {
                         prefs.reset("sakai:imsti."+ element); // Clear out any plain text key.
                         formParm = SimpleEncryption.encrypt(key, formParm);
