@@ -73,6 +73,7 @@ import org.sakaiproject.event.api.NotificationService;
 //import org.sakaiproject.event.cover.EventTrackingService;
 import org.sakaiproject.basiclti.LocalEventTrackingService;
 import org.sakaiproject.basiclti.util.SakaiBLTIUtil;
+import org.sakaiproject.basiclti.util.SimpleEncryption;
 
 import org.sakaiproject.service.gradebook.shared.AssignmentHasIllegalPointsException;
 import org.sakaiproject.service.gradebook.shared.CategoryDefinition;
@@ -612,7 +613,16 @@ public class IMSBLTIPortlet extends GenericPortlet {
         // Store preferences
         for (String element : fieldList) {
                 String formParm  = getFormParameter(request,sakaiProperties,element);
-                if ( "secret".equals(element) && LEAVE_SECRET_ALONE.equals(formParm) ) continue;
+                if ( "secret".equals(element) ) {
+                    if ( LEAVE_SECRET_ALONE.equals(formParm) ) continue;
+                    // If the user has specified a key.
+                    String key = ServerConfigurationService.getString("basiclti.encryption.key", null);
+                    if (key != null) {
+                        prefs.reset("sakai:imsti."+ element); // Clear out any plain text key.
+                        formParm = SimpleEncryption.encrpt(key, formParm);
+                        element = "encryptedSecret";
+                	}
+                }
                 try {
                         prefs.setValue("sakai:imsti."+element, formParm);
                         changed = true;

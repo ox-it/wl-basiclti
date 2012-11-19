@@ -58,6 +58,7 @@ public class SakaiBLTIUtil {
     public static final String BASICLTI_ROSTER_ENABLED = "basiclti.roster.enabled";
     public static final String BASICLTI_CONTENTLINK_ENABLED = "basiclti.contentlink.enabled";
     public static final String BASICLTI_CONSUMER_USERIMAGE_ENABLED = "basiclti.consumer.userimage.enabled";
+    public static final String BASICLTI_ENCRYPTION_KEY = "basiclti.encryption.key";
 
     public static void dPrint(String str)
     {
@@ -104,7 +105,15 @@ public class SakaiBLTIUtil {
             if ( xml == null ) return false;
 	    BasicLTIUtil.parseDescriptor(info, launch, xml);
         }
-        setProperty(info, "secret", getCorrectProperty(config,"secret", placement) );
+        String encryptionKey = ServerConfigurationService.getString(BASICLTI_ENCRYPTION_KEY, null);
+        String secret = null;
+        if (encryptionKey != null) {
+        	secret = SimpleEncryption.decrypt(encryptionKey, getCorrectProperty(config,"encryptedSecret", placement)); 
+        }
+        if (secret == null) {
+        	secret = getCorrectProperty(config,"secret", placement);
+        }
+        setProperty(info, "secret", secret );
         setProperty(info, "key", getCorrectProperty(config,"key", placement) );
         setProperty(info, "debug", getCorrectProperty(config,"debug", placement) );
         setProperty(info, "frameheight", getCorrectProperty(config,"frameheight", placement) );
