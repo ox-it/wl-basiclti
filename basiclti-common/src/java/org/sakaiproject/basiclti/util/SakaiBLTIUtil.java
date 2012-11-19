@@ -107,8 +107,12 @@ public class SakaiBLTIUtil {
         }
         String encryptionKey = ServerConfigurationService.getString(BASICLTI_ENCRYPTION_KEY, null);
         String secret = null;
-        if (encryptionKey != null) {
-        	secret = SimpleEncryption.decrypt(encryptionKey, getCorrectProperty(config,"encryptedSecret", placement)); 
+        try {
+            if (encryptionKey != null) {
+                secret = SimpleEncryption.decrypt(encryptionKey, getCorrectProperty(config,"encryptedsecret", placement)); 
+            }
+        } catch (RuntimeException re) {
+            // If we fail to decrypt fallback to normal secret storage.
         }
         if (secret == null) {
         	secret = getCorrectProperty(config,"secret", placement);

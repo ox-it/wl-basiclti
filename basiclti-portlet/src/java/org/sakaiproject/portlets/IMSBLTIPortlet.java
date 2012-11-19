@@ -618,9 +618,14 @@ public class IMSBLTIPortlet extends GenericPortlet {
                     // If the user has specified a key.
                     String key = ServerConfigurationService.getString(SakaiBLTIUtil.BASICLTI_ENCRYPTION_KEY, null);
                     if (key != null) {
-                        prefs.reset("sakai:imsti."+ element); // Clear out any plain text key.
-                        formParm = SimpleEncryption.encrypt(key, formParm);
-                        element = "encryptedSecret";
+                        try {
+                            formParm = SimpleEncryption.encrypt(key, formParm);
+                            prefs.reset("sakai:imsti."+ element); // Clear out any plain text key.
+                            element = "encryptedsecret";
+                        } catch (RuntimeException re) {
+                            // Leave alone and use unencrypted form.
+                            M_log.warn("Failed to encrypt secret, falling back to plaintext: "+ re.getMessage());
+                        }
                 	}
                 }
                 try {
