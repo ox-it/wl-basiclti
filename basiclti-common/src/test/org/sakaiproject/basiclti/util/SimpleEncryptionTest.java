@@ -30,31 +30,31 @@ public class SimpleEncryptionTest {
 	
 	@Test(expected=Exception.class)
 	public void testBadKey() {
-		SimpleEncryption.decrypt("badkey", SimpleEncryption.encrpt("goodkey", "Hello"));
+		SimpleEncryption.decrypt("badkey", SimpleEncryption.encrypt("goodkey", "Hello"));
 	}
 
 	@Test
 	public void test() {
-		assertNotNull(SimpleEncryption.encrpt("key", "Hello").length());
-		assertFalse("Hello".equals(SimpleEncryption.encrpt("key", "Hello")));
-		assertEquals("Hello", SimpleEncryption.decrypt("key", SimpleEncryption.encrpt("key", "Hello")));
+		assertNotNull(SimpleEncryption.encrypt("key", "Hello").length());
+		assertFalse("Hello".equals(SimpleEncryption.encrypt("key", "Hello")));
+		assertEquals("Hello", SimpleEncryption.decrypt("key", SimpleEncryption.encrypt("key", "Hello")));
 	}
 	
 	@Test
 	public void testSalted() {
-		assertFalse(SimpleEncryption.encrpt("key", "Hello").equals(SimpleEncryption.encrpt("key", "Hello")));
+		assertFalse(SimpleEncryption.encrypt("key", "Hello").equals(SimpleEncryption.encrypt("key", "Hello")));
 	}
 	
 	@Test
 	public void testLongerString() {
 		String longer = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus sit amet lectus et mi dictum dapibus. Aenean ac nibh non leo tristique ultricies ac eu tellus. Phasellus posuere arcu sollicitudin massa fringilla viverra. Donec sodales orci id odio dignissim eget bibendum odio rutrum. Cras id sem eget felis consequat bibendum. Nam id mauris nec lacus condimentum semper. Nullam eleifend risus et dui aliquam ut luctus tortor suscipit. Proin porta tellus tortor, eu pellentesque ante. Aenean sem eros, porttitor nec laoreet et, aliquam a justo. Vivamus condimentum risus quis lorem sodales viverra. Vivamus mollis lacinia congue. Nulla imperdiet enim sit amet ante sodales in euismod ante porta. Fusce in ullamcorper dolor. Nulla facilisi. Nullam risus nisi, pellentesque at convallis id, commodo a orci. Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
-		String encrypted = SimpleEncryption.encrpt("key", longer);
+		String encrypted = SimpleEncryption.encrypt("key", longer);
 		assertEquals(longer, SimpleEncryption.decrypt("key", encrypted));
 	}
 	
 	@Test
 	public void testNullEncrypt() {
-		assertNull(SimpleEncryption.encrpt("key", null));
+		assertNull(SimpleEncryption.encrypt("key", null));
 	}
 	
 	@Test

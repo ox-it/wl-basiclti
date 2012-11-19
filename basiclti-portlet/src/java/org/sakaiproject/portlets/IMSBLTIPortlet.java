@@ -619,7 +619,7 @@ public class IMSBLTIPortlet extends GenericPortlet {
                     String key = ServerConfigurationService.getString("basiclti.encryption.key", null);
                     if (key != null) {
                         prefs.reset("sakai:imsti."+ element); // Clear out any plain text key.
-                        formParm = SimpleEncryption.encrpt(key, formParm);
+                        formParm = SimpleEncryption.encrypt(key, formParm);
                         element = "encryptedSecret";
                 	}
                 }

@@ -29,7 +29,7 @@ public class SimpleEncryption {
 
 	private static final String CIPHER = "AES/CBC/PKCS5Padding";
 	
-	public static String encrpt(String key, String source) {
+	public static String encrypt(String key, String source) {
 		if (source == null) {
 			return null;
 		}
