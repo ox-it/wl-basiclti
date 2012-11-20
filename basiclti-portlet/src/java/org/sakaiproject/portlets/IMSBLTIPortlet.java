@@ -624,7 +624,7 @@ public class IMSBLTIPortlet extends GenericPortlet {
                             element = "encryptedsecret";
                         } catch (RuntimeException re) {
                             // Leave alone and use unencrypted form.
-                            M_log.warn("Failed to encrypt secret, falling back to plaintext: "+ re.getMessage());
+                            M_log.warn("Failed to encrypt secret, falling back to plaintext", re);
                         }
                 	}
                 }
