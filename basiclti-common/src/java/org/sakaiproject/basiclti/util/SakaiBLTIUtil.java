@@ -22,6 +22,8 @@ package org.sakaiproject.basiclti.util;
 import java.util.Properties;
 import java.net.URL;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.imsglobal.basiclti.BasicLTIUtil;
 import org.imsglobal.basiclti.BasicLTIConstants;
 import org.sakaiproject.linktool.LinkToolUtil;
@@ -50,6 +52,8 @@ import org.sakaiproject.util.Web;
  */
 @SuppressWarnings("deprecation")
 public class SakaiBLTIUtil {
+
+    private static Log M_log = LogFactory.getLog(SakaiBLTIUtil.class);
 
     public static final boolean verbosePrint = false;
 
@@ -112,7 +116,8 @@ public class SakaiBLTIUtil {
                 secret = SimpleEncryption.decrypt(encryptionKey, getCorrectProperty(config,"encryptedsecret", placement)); 
             }
         } catch (RuntimeException re) {
-            // If we fail to decrypt fallback to normal secret storage.
+        	// Log this so that if you change secret you get a message as to why all your basic LTI tools broke.
+            M_log.warn("Falling back to using plain secret, failed to decrypt encrypted secret: "+ re.getMessage());
         }
         if (secret == null) {
         	secret = getCorrectProperty(config,"secret", placement);
