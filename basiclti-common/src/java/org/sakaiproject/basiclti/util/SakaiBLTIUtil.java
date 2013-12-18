@@ -195,8 +195,8 @@ public class SakaiBLTIUtil {
         String releasename = toNull(getCorrectProperty(config,"releasename", placement));
         String releaseemail = toNull(getCorrectProperty(config,"releaseemail", placement));
 
-	// TODO: Think about anonymus
-	if ( user != null )
+	// We have a user and they aren't anonymous
+	if ( user != null && !UserDirectoryService.getAnonymousUser().equals(user))
 	{
 		setProperty(props,BasicLTIConstants.USER_ID,user.getId());
 
@@ -220,7 +220,7 @@ public class SakaiBLTIUtil {
 				setProperty(props,BasicLTIConstants.EXT_SAKAI_PROVIDER_DISPLAYID,user.getDisplayId());
 			}
 		}
- 
+	}
 	        String assignment = toNull(getCorrectProperty(config,"assignment", placement));
                 String allowOutcomes = ServerConfigurationService.getString(
                                 SakaiBLTIUtil.BASICLTI_OUTCOMES_ENABLED, null);
@@ -265,7 +265,6 @@ public class SakaiBLTIUtil {
 				setProperty(props,"ext_ims_lis_memberships_url", roster_url);  
 			}
 		}
-	}
 
 	String theRole = "Learner";
 	if ( SecurityService.isSuperUser() )
