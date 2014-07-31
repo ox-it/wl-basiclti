@@ -99,9 +99,7 @@ public class SimpleEncryption {
 	private static SecretKey generateSecret(char[] password, byte[] salt)
 			throws NoSuchAlgorithmException, InvalidKeySpecException {
 		SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-		// 128 bit keys don't cause problems with the export restrictions in the JVM
-		// 256 bit keys only work when the JCE unlimited strength policy is installed.
-		int keyLength = (Cipher.getMaxAllowedKeyLength("AES") == Integer.MAX_VALUE)?256:128;
+		int keyLength = getKeyLength();
 		KeySpec spec = new PBEKeySpec(password, salt, 8, keyLength);
 		SecretKey tmp = factory.generateSecret(spec);
 		SecretKey secret = new SecretKeySpec(tmp.getEncoded(), "AES");
@@ -110,6 +108,8 @@ public class SimpleEncryption {
 
 	public static int getKeyLength() {
 		try {
+			// 128 bit keys don't cause problems with the export restrictions in the JVM
+			// 256 bit keys only work when the JCE unlimited strength policy is installed.
 			int keyLength = (Cipher.getMaxAllowedKeyLength("AES") == Integer.MAX_VALUE) ? 256 : 128;
 			return keyLength;
 		} catch ( NoSuchAlgorithmException nsae) {
