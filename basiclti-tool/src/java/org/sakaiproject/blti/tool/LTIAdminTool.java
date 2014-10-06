@@ -909,8 +909,7 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 			return "lti_error";
         }
 
-		String vendor_code = (String) info.get("vendor_code");
-		String product_code = (String) info.get("product_code");
+		String instance_guid = (String) info.get("instance_guid");
 
         if ( profileTools.size() < 1 ) {
 			addAlert(state,rb.getString("deploy.activate.notools"));
@@ -937,9 +936,7 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 		// Loop through all of the tools
 		for ( Properties profileTool : profileTools ) {
 			String resource_type_code = (String) profileTool.get("resource_type_code");
-			String resource_handler = vendor_code;
-			if ( ! resource_handler.endsWith("/") && ! resource_handler.startsWith("/") ) resource_handler = resource_handler + "/" ;
-			resource_handler = resource_handler + product_code;
+			String resource_handler = instance_guid;
 			if ( ! resource_handler.endsWith("/") && ! resource_handler.startsWith("/") ) resource_handler = resource_handler + "/" ;
 			resource_handler = resource_handler + resource_type_code;
 			Map<String,Object> tool = ltiService.getToolForResourceHandlerDao(resource_handler);
@@ -1147,7 +1144,16 @@ System.out.println("newTool="+newTool);
 		context.put("tool_id", toolId);
 		
 		Long key = null;
-		if ( toolId != null ) key = new Long(toolId);
+		if ( toolId != null ) {
+			try {
+				key = new Long(toolId);
+			}
+			catch (NumberFormatException e) {
+				//Reset toolId and key
+				key=null;
+				toolId=null;
+			}
+		}
 		Map<String,Object> tool = null;
 		if ( key != null ) {
 			tool = ltiService.getTool(key);
@@ -1196,6 +1202,15 @@ System.out.println("newTool="+newTool);
                 addAlert(state,rb.getString("error.tool.not.found"));	 
                 return "lti_error";	 
         }	 
+
+        if (previousData == null) {
+        	Properties defaultData = new Properties();
+        	defaultData.put("title",tool.get(LTIService.LTI_TITLE));
+        	defaultData.put("pagetitle",tool.get(LTIService.LTI_PAGETITLE));
+        	previousData = defaultData;
+        	
+        }
+        
         String formInput = ltiService.formInput(previousData, contentForm);	 
 
         context.put("formInput",formInput);
@@ -1233,7 +1248,20 @@ System.out.println("newTool="+newTool);
 		}
 		else if ( retval instanceof Boolean )
 		{
-			// TODO: returns boolean
+			//If it's true retrieve the previous content?
+			if ((Boolean) retval == true) {
+				content = ltiService.getContent(Long.parseLong(id));
+				if ( content == null ) {
+					addAlert(state, rb.getString("error.content.not.found"));
+					switchPanel(state, "Error");
+					state.setAttribute(STATE_POST,reqProps);
+					state.setAttribute(STATE_CONTENT_ID,id);
+					return;
+				}
+			} else {
+				// TODO: returns false, should it do anyhing else? 
+				M_log.error("insertToolContent returned false for" + id);
+			}
 		}
 		else
 		{
