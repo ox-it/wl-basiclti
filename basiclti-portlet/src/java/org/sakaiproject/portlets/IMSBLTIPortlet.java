@@ -116,10 +116,17 @@ public class IMSBLTIPortlet extends GenericPortlet {
 
 	public final static String CURRENT_HTTP_REQUEST = "org.sakaiproject.util.RequestFilter.http_request";
 
+	public static final String SITE_NAME = "ui.service";
+
+	public static final String SAKAI = "Sakai";
+
+	private org.sakaiproject.component.api.ServerConfigurationService serverConfigurationService;
+
 	public void init(PortletConfig config) throws PortletException {
 		super.init(config);
 
 		pContext = config.getPortletContext();
+		serverConfigurationService = ServerConfigurationService.getInstance();
 
 		// Populate the list of fields
 		fieldList.add("launch");
@@ -231,16 +238,18 @@ public class IMSBLTIPortlet extends GenericPortlet {
 				dPrint("Setting sakai:maximized-url="+iframeUrl);
 
 				if ( "on".equals(newPage) || forcePopup ) {
-					String windowOpen = "window.open('"+iframeUrl+"','BasicLTI');"; 			
+					String windowOpen = "window.open('"+iframeUrl+"','BasicLTI');";
 					if ( popupDone == null ) {
 						text.append("<p>\n");
 						text.append("<script type=\"text/javascript\">\n");
 						text.append(windowOpen+"\n");
 						text.append("</script>\n");
 					}
-					text.append(rb.getString("new.page.launch"));
-					text.append("<br><a href=\""+iframeUrl+"\" onclick=\""+windowOpen+"\" target=\"BasicLTI\">"+rb.getString("noiframe.press.here")+"</a>");
+					String siteName = serverConfigurationService.getString(SITE_NAME, SAKAI);
+					String newPageLaunchText = rb.getFormattedMessage("new.page.launch", new Object[]{title, siteName});
+					text.append(newPageLaunchText);
 					text.append("</p>\n");
+					text.append("<input type=\"submit\" onclick=\""+windowOpen+"\" target=\"BasicLTI\" value=\"Launch " + title + "\"/>");
 				} else {
 					if ( "on".equals(maximize) ) {
 						text.append("<script type=\"text/javascript\" language=\"JavaScript\">\n");
