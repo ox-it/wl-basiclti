@@ -120,13 +120,10 @@ public class IMSBLTIPortlet extends GenericPortlet {
 
 	public static final String SAKAI = "Sakai";
 
-	private org.sakaiproject.component.api.ServerConfigurationService serverConfigurationService;
-
 	public void init(PortletConfig config) throws PortletException {
 		super.init(config);
 
 		pContext = config.getPortletContext();
-		serverConfigurationService = ServerConfigurationService.getInstance();
 
 		// Populate the list of fields
 		fieldList.add("launch");
@@ -245,7 +242,7 @@ public class IMSBLTIPortlet extends GenericPortlet {
 						text.append(windowOpen+"\n");
 						text.append("</script>\n");
 					}
-					String siteName = serverConfigurationService.getString(SITE_NAME, SAKAI);
+					String siteName = ServerConfigurationService.getString(SITE_NAME, SAKAI);
 					String newPageLaunchText = rb.getFormattedMessage("new.page.launch", new Object[]{title, siteName});
 					text.append(newPageLaunchText);
 					text.append("</p>\n");
