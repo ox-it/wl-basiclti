@@ -243,7 +243,7 @@ public class IMSBLTIPortlet extends GenericPortlet {
 						text.append("</script>\n");
 					}
 					String siteName = ServerConfigurationService.getString(SITE_NAME, SAKAI);
-					title = title!=null ? title: "your tool";
+					title = title!=null ? title : rb.getString("tool.name", "your tool");
 					String newPageLaunchText = rb.getFormattedMessage("new.page.launch", new Object[]{title, siteName});
 					text.append(newPageLaunchText);
 					text.append("</p>\n");
