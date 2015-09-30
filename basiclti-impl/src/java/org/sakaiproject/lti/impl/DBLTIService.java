@@ -288,7 +288,12 @@ public class DBLTIService extends BaseLTIService implements LTIService {
 			contentModelList.add(LTI_RESOURCE_HANDLER + ":text");
 			contentModel = contentModelList.toArray(new String[contentModelList.size()]);
 		}
-		
+		//If newpage(pop-up launch) is not in content and is in the tool, copy it, needed for 'always launch in pop-up option'
+		if( newProps.getProperty(LTI_NEWPAGE) == null && tool.get(LTI_NEWPAGE) != null){
+			newProps.put(LTI_NEWPAGE, String.valueOf(tool.get(LTI_NEWPAGE)));
+			contentModelList.add(LTI_NEWPAGE + ":checkbox:label=bl_newpage");
+			contentModel = contentModelList.toArray(new String[contentModelList.size()]);
+		}
 		if (contentModel == null)
 			return rb.getString("error.invalid.toolid");
 		return insertThingDao("lti_content", contentModel, LTIService.CONTENT_MODEL, newProps, siteId, isAdminRole, isMaintainRole);
