@@ -632,7 +632,7 @@ public abstract class BaseLTIService implements LTIService {
 		return getContentsDao(search, order, first, last, siteId, true);
 	}
 
-	protected abstract List<Map<String, Object>> getContentsDao(String search, String order, int first, int last, String siteId, boolean isAdminRole);
+	public abstract List<Map<String, Object>> getContentsDao(String search, String order, int first, int last, String siteId, boolean isAdminRole);
 
 	public Object insertToolContent(String id, String toolId, Properties reqProps)
 	{
