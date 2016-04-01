@@ -18,6 +18,10 @@
     <inceptionYear>2009</inceptionYear>
     <packaging>jar</packaging>
 
+	<properties>
+		<sakai.poi.version>3.13</sakai.poi.version>
+	</properties>
+
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -90,6 +94,11 @@
         <dependency>
             <groupId>org.quartz-scheduler</groupId>
             <artifactId>quartz</artifactId>
+        </dependency>
+		<dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>${sakai.poi.version}</version>
         </dependency>
 
     </dependencies>

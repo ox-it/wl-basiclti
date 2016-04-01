@@ -23,6 +23,7 @@ package org.sakaiproject.util.foorm;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.Properties;
@@ -30,6 +31,9 @@ import java.util.logging.Logger;
 
 import java.lang.Number;
 import java.sql.ResultSetMetaData;
+
+import org.apache.commons.lang.StringUtils;
+import org.sakaiproject.lti.api.LTISearchData;
 
 /**
  * 
@@ -1203,6 +1207,280 @@ public class Foorm {
 			}
 		}
 		return fields.toString();
+	}
+
+	/**
+	 * Check to see if an order clause is valid
+	 *
+	 * A legal order fields is of the form:
+	 *
+	 * [tablename].fieldname [asc|desc]
+	 * 
+	 * @param order
+	 * @param tableName
+	 * @param fieldinfo
+	 * @return null if the order is not valid and a good order string if if is OK
+	 */
+	public String orderCheck(String order, String tableName, String[] fieldinfo) {
+
+		if ( order == null ) return null;
+		String order_seq = null;
+		String order_table = null;
+		String order_field = null;
+
+		String opieces [] = order.trim().split(" ");
+		if ( opieces.length > 2 ) {
+			return null;
+		} else if ( opieces.length == 2 ) {
+			order_seq = opieces[1].toUpperCase();
+			if ( "ASC".equals(order_seq) || "DESC".equals(order_seq) ) {
+				// All good
+			} else {
+				return null;
+			}
+		}
+
+		String [] fpieces = opieces[0].split("\\.");
+		String regex = "^[a-zA-Z0-0_]+$";
+
+		if ( fpieces.length == 1 ) {
+			order_field = fpieces[0];
+		} else if ( fpieces.length == 2 )  {
+			order_table = fpieces[0];
+			order_field = fpieces[1];
+			if ( !order_table.matches(regex) ) {
+				return null;
+			}
+		} else {
+			return null;
+		}
+
+		if ( !order_field.matches(regex) ) {
+			return null;
+		}
+		if ( order_table == null ) {
+			order_table = tableName;
+		} else if ( ! tableName.equals(order_table) ) {
+			return null;
+		}
+
+		// Make sure our field is legit
+		StringBuffer fields = new StringBuffer();
+		boolean found = false;
+		for (String line : fieldinfo) {
+			Properties info = parseFormString(line);
+			String field = info.getProperty("field");
+			String type = info.getProperty("type");
+			if (field == null || type == null) {
+				throw new IllegalArgumentException(
+						"All model elements must include field name and type");
+			}
+			if ( "header".equals(type) ) continue;
+			if ( field.equals(order_field) ) {
+				found = true;
+				
+				//maybe the field in the model has defined a table
+				String table = info.getProperty("table");
+				if (StringUtils.isNotEmpty(table)) {
+					order_table = table;
+				}
+				//maybe the field in the model has defined a real name
+				String realname = info.getProperty("realname");
+				if (StringUtils.isNotEmpty(realname)) {
+					order_field = realname;
+				}
+				break;
+			}
+		}
+		if ( ! found ) {
+			return null;
+		}
+
+		String retval = order_table+"."+order_field;
+		if ( order_seq != null ) {
+			retval = retval + " " + order_seq;
+		}
+		return retval;
+	}
+	
+	/**
+	 * Split given search clause into valid tokens
+	 * 
+	 * We assume a valid search clause like :
+	 * 
+	 * SEARCH_FIELD_1:SEARCH_VALUE_1#:#SEARCH_FIELD_2:SEARCH_VALUE_2#:#...#:#SEARCH_FIELD_N:SEARCH_VALUE_N
+	 * 
+	 * @param search
+	 * @return list with search tokens
+	 */
+	public List<String> getSearchTokens(String search) {
+		try {
+			return Arrays.asList(search.split("#:#"));
+		}
+		catch (Exception ex) {
+			return new ArrayList<String>();
+		}
+	}
+
+	/**
+	 * Split given search clause and get search fields
+	 * 
+	 * @param search
+	 * @return list with search fields
+	 */
+	public List<String> getSearchFields(String search) {
+		List<String> ret = new ArrayList<String>();
+		for (String token : getSearchTokens(search)) {
+			ret.add(getSearchField(token));
+		}
+		return ret;
+	}
+
+	/**
+	 * Get search field from a search token
+	 * 
+	 * We assume a valid search token like :
+	 * 
+	 * SEARCH_FIELD:SEARCH_VALUE
+	 * 
+	 * @param search
+	 * @return search field
+	 */
+	public String getSearchField(String search) {
+		if (search != null) {
+			return search.substring(0, search.indexOf(":"));
+		}
+		return "";
+	}
+
+	/**
+	 * Get search value from a search token
+	 * 
+	 * We assume a valid search token like :
+	 * 
+	 * SEARCH_FIELD:SEARCH_VALUE
+	 * 
+	 * @param search
+	 * @return search value
+	 */
+	public String getSearchValue(String search) {
+		if (search != null && search.indexOf(":") >= 0) {
+			return search.substring(search.indexOf(":") + 1);
+		}
+		return "";
+	}
+
+	/**
+	 * Check if all tokens in a search clause are valid
+	 * 
+	 * We assume a valid search clause like :
+	 * 
+	 * SEARCH_FIELD_1:SEARCH_VALUE_1#:#SEARCH_FIELD_2:SEARCH_VALUE_2#:#...#:#SEARCH_FIELD_N:SEARCH_VALUE_N
+	 * 
+	 * Invalid tokens will be removed from search
+	 * 
+	 * @param search
+	 * @param tableName
+	 * @param fieldinfo
+	 * @return checked search
+	 */
+	public String searchCheck(String search, String tableName, String[] fieldinfo) {
+		if (search == null) {
+			return null;
+		}
+		StringBuilder sb = new StringBuilder();
+		for (String token : getSearchTokens(search)) {
+			String s = searchFieldCheck(token, tableName, fieldinfo);
+			if (StringUtils.isNotEmpty(s)) {
+				if (sb.length() > 0) {
+					sb.append("#:#");
+				}
+				sb.append(s);
+			}
+		}
+		return (sb.length() > 0) ? sb.toString() : null;
+	}
+
+	/**
+	 * Check if a search token is valid 
+	 * 
+	 * We assume a valid search token like :
+	 * 
+	 * SEARCH_FIELD:SEARCH_VALUE
+	 * 
+	 * @param search
+	 * @param tableName
+	 * @param fieldinfo
+	 * @return checked search
+	 */
+	public String searchFieldCheck(String search, String tableName, String[] fieldinfo) {
+		String searchField = getSearchField(search);
+		String searchValue = getSearchValue(search);
+		//check if token contains field and value
+		if (StringUtils.isNotEmpty(searchField) && StringUtils.isNotEmpty(searchValue)) {
+			//look for the field in the given model
+			for (String line : fieldinfo) {
+				Properties info = parseFormString(line);
+				String field = info.getProperty("field");
+				if (searchField.equals(field)) {
+					//maybe the field in the model has defined a table
+					String table = info.getProperty("table");
+					if (StringUtils.isNotEmpty(table)) {
+						tableName = table;
+					}
+					//maybe the field in the model has defined a real name
+					String realname = info.getProperty("realname");
+					if (StringUtils.isNotEmpty(realname)) {
+						searchField = realname;
+					}
+					return tableName + "." + searchField + ":" + searchValue;
+				}
+			}
+		}
+		return null;
+	}
+
+
+	/**
+	 * Generates a secured search clause+values based on the given search clause
+	 * 
+	 * We assume a valid search clause like :
+	 * 
+	 * SEARCH_FIELD_1:SEARCH_VALUE_1#:#SEARCH_FIELD_2:SEARCH_VALUE_2#:#...#:#SEARCH_FIELD_N:SEARCH_VALUE_N
+	 * 
+	 * Secured search (LTISearchData.search) will be something like :
+	 * 
+	 * SEARCH_FIELD_1 LIKE ? AND SEARCH_FIELD_2 LIKE ? AND ... AND SEARCH_FIELD_N LIKE ?
+	 * 
+	 * Also returns a list with all values (LTISearchData.values)
+	 * 
+	 * Also accepts a search clause like [TABLENAME.]SEARCH_FIELD=SEARCH_VALUE
+	 * 
+	 * @param search
+	 * @return secured search
+	 */
+	public LTISearchData secureSearch(String search) {
+		LTISearchData ret = new LTISearchData();
+		//check if is a direct search
+		if (StringUtils.isNotEmpty(search) && search.matches("(\\w+\\.)?\\w+\\s*=\\s*\\w+")) {
+			ret.setSearch(search);
+			return ret;
+		}
+		//split into tokens
+		StringBuilder sb = new StringBuilder();
+		for (String token : getSearchTokens(search)) {
+			String searchField = getSearchField(token);
+			String searchValue = getSearchValue(token);
+			if (StringUtils.isNotEmpty(searchField) && StringUtils.isNotEmpty(searchValue)) {
+				if (sb.length() > 0) {
+					sb.append(" AND ");
+				}
+				sb.append(searchField + " LIKE ?");
+				ret.addSearchValue((Object)("%" + searchValue + "%"));
+			}
+		}
+		ret.setSearch((sb.length() > 0) ? sb.toString() : null);
+		return ret;
 	}
 
 	/**

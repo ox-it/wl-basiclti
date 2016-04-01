@@ -23,28 +23,26 @@ package org.sakaiproject.blti.tool;
 import java.io.Writer;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
-import java.util.HashSet;
-import java.util.Properties;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Set;
+import java.util.Properties;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.lang.StringUtils;
-
 import org.json.simple.JSONValue;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
-
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.ObjectWriter;
-
 import org.sakaiproject.cheftool.Context;
 import org.sakaiproject.cheftool.JetspeedRunData;
 import org.sakaiproject.cheftool.RunData;
@@ -69,10 +67,9 @@ import org.sakaiproject.util.FormattedText;
 
 // TODO: FIX THIS
 import org.sakaiproject.tool.cover.SessionManager;
-
+import org.sakaiproject.lti.api.LTIExportService;
 import org.sakaiproject.lti.api.LTIService;
 import org.sakaiproject.basiclti.util.SakaiBLTIUtil;
-
 import org.imsglobal.basiclti.BasicLTIUtil;
 import org.imsglobal.lti2.LTI2Config;
 import org.imsglobal.lti2.LTI2Util;
@@ -107,6 +104,34 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 	private static String SECRET_HIDDEN = "***************";
 	
 	private static String ALLOW_MAINTAINER_ADD_SYSTEM_TOOL = "lti:allow_maintainer_add_system_tool";
+	
+	//accepted parameters for page, sort and search actions
+	private static String PARAM_ID = "id";
+	private static String PARAM_CRITERIA = "criteria";
+	private static String PARAM_PAGE_EVENT = "page_event";
+	private static String PARAM_PAGE = "pagesize";
+	private static String PARAM_SEARCH_FIELD = "field";
+	private static String PARAM_SEARCH_VALUE = "search";
+	
+	//default elements per page
+	private static int ELEMENTS_PER_PAGE = 50;
+	
+	//available paging events
+	private static String PAGE_EVENT_FIRST = "first";
+	private static String PAGE_EVENT_PREV = "prev";
+	private static String PAGE_EVENT_NEXT = "next";
+	private static String PAGE_EVENT_LAST = "last";
+	
+	//attributes stored in the state/context
+	private static String ATTR_FILTER_ID = "FILTER_ID";
+	private static String ATTR_SORT_CRITERIA = "SORT_CRITERIA";
+	private static String ATTR_LAST_SORTED_FIELD = "LAST_SORTED_FIELD";
+	private static String ATTR_ASCENDING_ORDER = "ASCENDING_ORDER";
+	private static String ATTR_SORT_INDEX = "SORT_INDEX";
+	private static String ATTR_SORT_PAGESIZE = "SORT_PAGESIZE";
+	private static String ATTR_SEARCH_LAST_FIELD = "SEARCH_LAST_FIELD";
+	private static String ATTR_SEARCH_MAP = "search_map";
+	private static String ATTR_ATTRIBUTION_VALUES = "attribution_values";
 
 	/** Service Implementations */
 	protected static ToolManager toolManager = null; 
@@ -172,6 +197,164 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 		return buildToolSitePanelContext(portlet, context, data, state);
 	}
 	
+	/**
+	 * Filter action : allows to filter tool site list with the given tool_id
+	 * 
+	 * Accepted parameters : id
+	 * @param data
+	 */
+	public void doFilter(RunData data)
+	{
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+		String id = data.getParameters().getString(PARAM_ID);
+		if (StringUtils.isNotEmpty(id)) {
+			state.setAttribute(ATTR_FILTER_ID, id);
+		}
+	}
+
+	/**
+	 * Sort action : allows to order the tool site list by the given field (column name). Ascending/Descending order will be detected automatically. 
+	 * 
+	 * Accepted parameters : criteria
+	 * @param data
+	 */
+	public void doSort(RunData data)
+	{
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+
+		String lastSortedField = (String)state.getAttribute(ATTR_LAST_SORTED_FIELD);
+		Boolean ascendingOrder = (Boolean)state.getAttribute(ATTR_ASCENDING_ORDER);
+
+		String criteria = data.getParameters().getString(PARAM_CRITERIA);
+
+		String ret = null;
+		boolean changeSortingOrder = StringUtils.isNotEmpty(criteria);
+		if (StringUtils.isNotEmpty(criteria) && !criteria.equals(lastSortedField)) {
+			changeSortingOrder = false;
+			ascendingOrder = true;
+		}
+		if (changeSortingOrder) {
+			ascendingOrder = !ascendingOrder;
+		}
+		if (StringUtils.isNotEmpty(criteria)) {
+			ret = criteria;
+			ret += (ascendingOrder ? " ASC" : " DESC");
+			state.setAttribute(ATTR_LAST_SORTED_FIELD, criteria);
+		}
+		state.setAttribute(ATTR_ASCENDING_ORDER, ascendingOrder);
+		state.setAttribute(ATTR_SORT_CRITERIA, ret);
+	}
+
+	/**
+	* Change page action : allow to move through pages
+	* 
+	* Accepted parameters : page_event, (optional)pagesize
+	* Allowed events : first, prev, next, last
+	* @param data
+	*/
+	public void doChangePage(RunData data)
+	{
+		//also check if page size has changed
+		doChangePageSize(data);
+
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+
+		Integer index = (Integer)state.getAttribute(ATTR_SORT_INDEX);
+		try {
+			if (index == null) {
+				index = 0;
+			}
+			String event = data.getParameters().getString(PARAM_PAGE_EVENT);
+			if (StringUtils.isNotEmpty(event)) {
+				Integer pageSize = (Integer)state.getAttribute(ATTR_SORT_PAGESIZE);
+				if (PAGE_EVENT_FIRST.equals(event)) {
+					index = 0;
+				}
+				if (PAGE_EVENT_PREV.equals(event)) {
+					index = Math.max(0, index - pageSize);
+				}
+				if (PAGE_EVENT_NEXT.equals(event)) {
+					index += pageSize;
+				}
+				if (PAGE_EVENT_LAST.equals(event)) {
+					index = -1;
+				}
+			}
+		}
+		catch (Exception ex) {}
+		state.setAttribute(ATTR_SORT_INDEX, index);
+	}
+
+	/**
+	* Change page size action : allows to change the page size
+	* 
+	* Accepted parameters : pagesize
+	* @param data
+	*/
+	public void doChangePageSize(RunData data)
+	{
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+
+		Integer pageSize = (Integer)state.getAttribute(ATTR_SORT_PAGESIZE);
+		try {
+			String param = data.getParameters().getString(PARAM_PAGE);
+			if (StringUtils.isNotEmpty(param)) {
+				pageSize = Integer.parseInt(param);
+			}
+		}
+		catch (Exception ex) {}
+		if (pageSize == null || pageSize < 0) {
+			pageSize = ELEMENTS_PER_PAGE;
+		}
+		state.setAttribute(ATTR_SORT_PAGESIZE, pageSize);
+	}
+
+	/**
+	* Search action : allows to search by a field (column) and value. One action by one search, but multiple search (in different columns) will be accumulative
+	* 
+	* Accepted parameters : field, search
+	* @param data
+	*/
+	public void doSearch(RunData data)
+	{
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+
+		String searchField = data.getParameters().getString(PARAM_SEARCH_FIELD);
+		String searchValue = data.getParameters().getString(PARAM_SEARCH_VALUE);
+		Map<String, String> searchMap = (Map<String, String>)state.getAttribute(ATTR_SEARCH_MAP);
+		if (searchMap == null) {
+			searchMap = new HashMap<String, String>();
+		}
+		if (StringUtils.isNotEmpty(searchField)) {
+			if (StringUtils.isNotEmpty(searchValue)) {
+				searchMap.put(searchField, searchValue);			
+			}
+			else
+			{
+				searchMap.remove(searchField);
+			}
+		}
+		state.setAttribute(ATTR_SEARCH_MAP, searchMap);
+		state.setAttribute(ATTR_SEARCH_LAST_FIELD, searchField);
+		state.setAttribute(ATTR_SORT_INDEX, 0);
+	}
+
+	/**
+	* Reset all paging/sorting/searching fields in the state
+	* @param data
+	*/
+	public void doReset(RunData data)
+	{
+		SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+		state.setAttribute(ATTR_FILTER_ID, null);
+		state.setAttribute(ATTR_SEARCH_MAP, null);
+		state.setAttribute(ATTR_SEARCH_LAST_FIELD, null);
+		state.setAttribute(ATTR_SORT_INDEX, 0);
+		state.setAttribute(ATTR_LAST_SORTED_FIELD, null);
+		state.setAttribute(ATTR_ASCENDING_ORDER, true);
+		state.setAttribute(ATTR_ATTRIBUTION_VALUES, null);
+	}
+	
 	public String buildToolSitePanelContext(VelocityPortlet portlet, Context context, 
 			RunData data, SessionState state)
 	{
@@ -189,31 +372,143 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 		context.put("doEndHelper", BUTTON + "doEndHelper");
 		state.removeAttribute(STATE_POST);
 		state.removeAttribute(STATE_SUCCESS);
+		
+		String order = (String)state.getAttribute(ATTR_SORT_CRITERIA);
+
+		Integer pageSize = (Integer)state.getAttribute(ATTR_SORT_PAGESIZE);
+		if (pageSize == null) {
+			pageSize = ELEMENTS_PER_PAGE;
+		}
+
+		//build search clause based on parameters and put some of them in the context
+		String search = buildSearch(data, context);
+
+		//check for tool filter
+		String filterId = (String)state.getAttribute(ATTR_FILTER_ID);
+		if (StringUtils.isNotEmpty(filterId)) {
+			search = "tool_id:" + filterId + ((search != null) ? ("#:#" + search) : "");
+		}
+
+		//count all contents
+		int count_contents = ltiService.countContents(search);
+		context.put("count_contents", count_contents);
+
+		//if no contents detected
+		Integer totalCount = count_contents;
+		if (count_contents == 0) {
+			//count all contents without search
+			totalCount = ltiService.countContents(null);
+		}
+		context.put("hasContents", (totalCount > 0));
+
+		//get paging index
+		Integer index = (Integer)state.getAttribute(ATTR_SORT_INDEX);
+		if (index == null) {
+			index = 0;
+		}
+		if (index == -1) {
+			index = (count_contents - 1) / pageSize * pageSize;
+		}
+		else if (index >= count_contents) {
+			index = Math.max(0, count_contents - 1);
+		}
+		int lastIndex = index + pageSize - 1;
+
+		//put all in the context
+		context.put("sortIndex", (index + 1));
+		context.put("sortLastIndex", Math.min(lastIndex + 1, count_contents));
+		context.put("sortPageSize", pageSize);
+		context.put(ATTR_LAST_SORTED_FIELD, state.getAttribute(ATTR_LAST_SORTED_FIELD));
+		context.put(ATTR_ASCENDING_ORDER, state.getAttribute(ATTR_ASCENDING_ORDER));
 
 		// this is for the "site tools" panel
-		List<Map<String,Object>> contents = ltiService.getContents(null,null,0,5000);
-		for ( Map<String,Object> content : contents ) {
-			
-			Long tool_id_long = null;
-			try{
-				tool_id_long = new Long(content.get(LTIService.LTI_TOOL_ID).toString());
-			}
-			catch (Exception e)
-			{
-				// log the error
-				M_log.error("error parsing tool id " + content.get(LTIService.LTI_TOOL_ID));
-			}
-			context.put("tool_id_long", tool_id_long);
-			String plstr = (String) content.get(LTIService.LTI_PLACEMENT);
-			ToolConfiguration tool = SiteService.findTool(plstr);
-			if ( tool == null ) {
-				content.put(LTIService.LTI_PLACEMENT, null);
+		List<Map<String, Object>> contents = new ArrayList<Map<String, Object>>();
+		if (count_contents > 0) {
+			Map<String, String> siteURLMap = new HashMap<String, String>(); //cache for site URL
+			contents = (List<Map<String, Object>>)ltiService.getContents(search, order, index, lastIndex);
+			for ( Map<String,Object> content : contents ) {
+
+				Long tool_id_long = null;
+				try{
+					tool_id_long = new Long(content.get(LTIService.LTI_TOOL_ID).toString());
+				}
+				catch (Exception e)
+				{
+					// log the error
+					M_log.error("error parsing tool id " + content.get(LTIService.LTI_TOOL_ID));
+				}
+				content.put("tool_id_long", tool_id_long);
+				String plstr = (String) content.get(LTIService.LTI_PLACEMENT);
+				ToolConfiguration tool = SiteService.findTool(plstr);
+				if ( tool == null ) {
+					content.put(LTIService.LTI_PLACEMENT, null);
+				}
+				
+				//get site url based on site id
+				String siteId = (String) content.get(LTIService.LTI_SITE_ID);
+				try {
+					//look for it in the cache
+					String url = siteURLMap.get(siteId);
+					if(url == null) {
+						url = SiteService.getSite(siteId).getUrl();
+						siteURLMap.put(siteId, url);
+					}
+					content.put("site_url", url);
+				} catch(Exception e)
+				{
+					M_log.error("error getting url for site " + siteId);
+				}
 			}
 		}
 		context.put("contents", contents);
 		context.put("messageSuccess",state.getAttribute(STATE_SUCCESS));
-		context.put("isAdmin",new Boolean(ltiService.isAdmin()) );
-		context.put("getContext",toolManager.getCurrentPlacement().getContext());
+		
+		//put velocity date tool in the context
+		DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, rb.getLocale());
+		context.put("dateTool", df);
+
+		//export csv/excel links
+		context.put("export_url_csv", ltiService.getExportUrl(toolManager.getCurrentPlacement().getContext(), filterId, LTIExportService.ExportType.CSV));
+		context.put("export_url_excel", ltiService.getExportUrl(toolManager.getCurrentPlacement().getContext(), filterId, LTIExportService.ExportType.EXCEL));
+
+		//attribution column (just header name)
+		String attribution_name = serverConfigurationService.getString(LTIService.LTI_SITE_ATTRIBUTION_PROPERTY_NAME);
+		if (StringUtils.isNotEmpty(attribution_name)) {
+			//check if property is a translation key
+			String aux = rb.getString(attribution_name);
+			if (StringUtils.isNotEmpty(aux)) {
+				attribution_name = aux;
+			}
+			context.put("attribution_name", attribution_name);
+			
+			//join all available attribution values in a single set
+			SortedSet<String> availableAttributionValues = (SortedSet<String>)state.getAttribute(ATTR_ATTRIBUTION_VALUES);
+			
+			//just the first time
+			if(availableAttributionValues == null) {
+				availableAttributionValues = new TreeSet<String>();
+
+				//if we are not in !admin site, we don't want to look for other sites
+				if(ltiService.isAdmin()) {
+					String attribution_key = serverConfigurationService.getString(LTIService.LTI_SITE_ATTRIBUTION_PROPERTY_KEY);
+					Map propertyCriteria = new HashMap();			
+					propertyCriteria.put(attribution_key, "");
+					
+					List<Site> list = SiteService.getSites(org.sakaiproject.site.api.SiteService.SelectionType.ANY, null, null, propertyCriteria, org.sakaiproject.site.api.SiteService.SortType.NONE, null);			
+					if(list != null && list.size() > 0) {
+						availableAttributionValues.add("");
+						for(Site s : list) {
+							String prop = s.getProperties().getProperty(attribution_key);
+							if (StringUtils.isNotEmpty(prop)) {
+								availableAttributionValues.add(prop);
+							}
+						}
+					}
+				}
+			}
+			context.put(ATTR_ATTRIBUTION_VALUES, availableAttributionValues);
+			state.setAttribute(ATTR_ATTRIBUTION_VALUES, availableAttributionValues);
+		}
 		
 		// top navigation menu
 		Menu menu = new MenuImpl(portlet, data, "LTIAdminTool");
@@ -257,6 +552,9 @@ public class LTIAdminTool extends VelocityPortletPaneledAction
 		menu.add(new MenuEntry(rb.getString("tool.in.site"), true, "doNav_tool_site"));
 		menu.add(new MenuEntry(rb.getString("tool.in.system"), false, "doNav_tool_system"));
 		context.put("menu", menu);
+		
+		//reset paging/sorting/searching state
+		doReset(data);
 		
 		return "lti_tool_system";
 	}
@@ -1643,5 +1941,28 @@ System.out.println("newTool="+newTool);
 		state.removeAttribute(STATE_SUCCESS);
 		return "lti_top_refresh";
 	}
+	
+	//generates a search clause (SEARCH_FIELD_1:SEARCH_VALUE_1#:#SEARCH_FIELD_2:SEARCH_VALUE_2#:#...#:#SEARCH_FIELD_N:SEARCH_VALUE_N) and puts some parameters in the context
+	private String buildSearch(RunData data, Context context) {
+        SessionState state = ((JetspeedRunData)data).getPortletSessionState(((JetspeedRunData)data).getJs_peid());
+        StringBuilder sb = new StringBuilder();
+        Map<String, String> searchMap = (Map<String, String>)state.getAttribute(ATTR_SEARCH_MAP);
+        if (searchMap != null) {
+            for (String k : searchMap.keySet()) {
+                if (sb.length() > 0) {
+                    sb.append("#:#");
+                }
+                if (StringUtils.isNotEmpty(k) && StringUtils.isNotEmpty((String)searchMap.get(k))) {
+                    sb.append(k + ":" + searchMap.get(k));
+                }
+            }
+            context.put(ATTR_SEARCH_MAP, searchMap);
+            context.put(ATTR_SEARCH_LAST_FIELD, state.getAttribute(ATTR_SEARCH_LAST_FIELD));
+            if (sb.length() > 0) {
+                return sb.toString();
+            }
+        }
+        return null;
+    }
 
 }
